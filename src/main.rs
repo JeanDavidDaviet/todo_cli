@@ -14,11 +14,24 @@ struct Task {
     completed_at: Option<DateTime<Local>>,
 }
 
+impl Task {
+    fn display(&self) {
+        if self.done {
+            println!("✅ {} - Créée le {} - Complétée le {}", self.title, self.created_at, self.completed_at.map_or("Non complétée".to_string(), |dt| dt.to_string()));
+        } else {
+            println!("❌ {} - Créée le {}", self.title, self.created_at)
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct TodoList {
     tasks: Vec<Task>,
 }
 
+struct CompletedTasksIter<'a> {
+    inner: std::slice::Iter<'a, Task>
+}
 struct PendingTasksIter<'a> {
     inner: std::slice::Iter<'a, Task>
 }
@@ -55,11 +68,19 @@ impl TodoList {
 
     fn list_tasks(&mut self) {
         for task in self.tasks.iter() {
-            if task.done {
-                println!("✅ {} - Créée le {} - Complétée le {}", task.title, task.created_at, task.completed_at.map_or("Non complétée".to_string(), |dt| dt.to_string()));
-            } else {
-                println!("❌ {} - Créée le {}", task.title, task.created_at)
-            }
+            task.display();
+        }
+    }
+
+    fn list_completed_tasks(&mut self) {
+        for task in self.completed_tasks() {
+            task.display();
+        }
+    }
+
+    fn list_pending_tasks(&mut self) {
+        for task in self.pending_tasks() {
+            task.display();
         }
     }
 
@@ -96,7 +117,13 @@ impl TodoList {
         }
     }
 
-    fn pending_tasks(&self) -> PendingTasksIter {
+    fn completed_tasks<'a> (&'a self) -> CompletedTasksIter<'a> {
+        CompletedTasksIter { 
+            inner: self.tasks.iter()
+        }
+    }
+
+    fn pending_tasks<'a> (&'a self) -> PendingTasksIter<'a> {
         PendingTasksIter { 
             inner: self.tasks.iter()
         }
@@ -124,6 +151,19 @@ impl<'a> Iterator for PendingTasksIter<'a> {
     }
 }
 
+impl<'a> Iterator for CompletedTasksIter<'a> {
+    type Item = &'a Task;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(task) = self.inner.next() {
+            if task.done {
+                return Some(task)
+            }
+        }
+        None
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "todo")]
 #[command(about = "Un gestionnaire de tâches simple", long_about = None)]
@@ -140,7 +180,15 @@ enum Commands {
         title: String
     },
     /// Lister toutes les tâches
-    List,
+    List {
+        /// Afficher seulement les tâches complétées
+        #[arg(long)]
+        completed: bool,
+
+        /// Afficher seulement les tâches en cours
+        #[arg(long)]
+        pending: bool,
+    },
     /// Supprimer une tâche
     Remove {
         /// L'ID de la tâche
@@ -155,40 +203,34 @@ enum Commands {
     Reset,
 }
 
-fn main() {
-    let mut todo_list = TodoList { tasks: vec![] };
-    todo_list.add_task("coucou".to_string());
-    todo_list.add_task("hello".to_string());
-    todo_list.complete_task(1);
-
-    // for task in &todo_list {
-    //     println!("{}", task.title);
-    // }
-
-    for task in todo_list.pending_tasks() {
-        println!("{}", task.title);
+fn main() {    
+    let cli = Cli::parse();
+    let mut todolist = TodoList::load();
+    match cli.command {
+        Commands::Add { title } => {
+            todolist.add_task(title);
+            todolist.list_tasks();
+        },
+        Commands::Remove { id } => {
+            todolist.remove_task(id);
+            todolist.list_tasks();
+        },
+        Commands::Complete { id } => {
+            todolist.complete_task(id);
+            todolist.list_tasks();
+        }
+        Commands::List { completed, pending} => {
+            if completed {
+                todolist.list_completed_tasks();
+            } else if pending {
+                todolist.list_pending_tasks();
+            } else {
+                todolist.list_tasks();
+            }
+        }
+        Commands::Reset => {
+            todolist.reset_tasks();
+            todolist.list_tasks();
+        }
     }
-    // let cli = Cli::parse();
-    // let mut todolist = TodoList::load();
-    // match cli.command {
-    //     Commands::Add { title } => {
-    //         todolist.add_task(title);
-    //         todolist.list_tasks();
-    //     },
-    //     Commands::Remove { id } => {
-    //         todolist.remove_task(id);
-    //         todolist.list_tasks();
-    //     },
-    //     Commands::Complete { id } => {
-    //         todolist.complete_task(id);
-    //         todolist.list_tasks();
-    //     }
-    //     Commands::List => {
-    //         todolist.list_tasks();
-    //     }
-    //     Commands::Reset => {
-    //         todolist.reset_tasks();
-    //         todolist.list_tasks();
-    //     }
-    // }
 }
