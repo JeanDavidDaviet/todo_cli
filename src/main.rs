@@ -17,9 +17,9 @@ struct Task {
 impl Task {
     fn display(&self) {
         if self.done {
-            println!("✅ {} - Créée le {} - Complétée le {}", self.title, self.created_at, self.completed_at.map_or("Non complétée".to_string(), |dt| dt.to_string()));
+            println!("✅ {} - Created on {} - Completed on {}", self.title, self.created_at, self.completed_at.map_or("Not completed".to_string(), |dt| dt.to_string()));
         } else {
-            println!("❌ {} - Créée le {}", self.title, self.created_at)
+            println!("❌ {} - Created on {}", self.title, self.created_at)
         }
     }
 }
@@ -110,11 +110,11 @@ impl TodoList {
     fn save(&self) {
         if let Err(_) = fs::exists(&self.path) {
             fs::write(&self.path, "").unwrap_or_else(|_| {
-                panic!("Erreur création fichier {:?}", &self.path);
+                panic!("Error creating file {:?}", &self.path);
             });
         }
-        let json = serde_json::to_string_pretty(&self).expect("Erreur sérialisation");
-        fs::write(&self.path, json).expect("Erreur écriture fichier");
+        let json = serde_json::to_string_pretty(&self).expect("Serialization error");
+        fs::write(&self.path, json).expect("File write error");
     }
 
     fn load(path: PathBuf) -> Self {
@@ -173,43 +173,43 @@ impl<'a> Iterator for CompletedTasksIter<'a> {
 
 #[derive(Parser)]
 #[command(name = "todo")]
-#[command(about = "Un gestionnaire de tâches simple", long_about = None)]
+#[command(about = "A simple task manager", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
-    /// Chemin vers le fichier de sauvegarde
+    /// Path to the save file
     #[arg(short, long, default_value = "todo.json")]
     path: PathBuf,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Ajouter une nouvelle tâche
+    /// Add a new task
     Add {
-        /// Le titre de la tâche
+        /// The task title
         title: String
     },
-    /// Lister toutes les tâches
+    /// List all tasks
     List {
-        /// Afficher seulement les tâches complétées
+        /// Display only completed tasks
         #[arg(long)]
         completed: bool,
 
-        /// Afficher seulement les tâches en cours
+        /// Display only pending tasks
         #[arg(long)]
         pending: bool,
     },
-    /// Supprimer une tâche
+    /// Remove a task
     Remove {
-        /// L'ID de la tâche
+        /// The task ID
         id: i32
     },
-    /// Compléter une tâche
+    /// Complete a task
     Complete {
-        /// L'ID de la tâche
+        /// The task ID
         id: i32
     },
-    /// Remettre à zéro toutes les tâches
+    /// Reset all tasks
     Reset,
 }
 
