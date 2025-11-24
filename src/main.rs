@@ -1,4 +1,4 @@
-use std::{fs, vec};
+use std::{fs, path::PathBuf, vec};
 use clap::{Parser, Subcommand};
 use chrono::{DateTime, Local};
 
@@ -27,6 +27,8 @@ impl Task {
 #[derive(Serialize, Deserialize, Debug)]
 struct TodoList {
     tasks: Vec<Task>,
+    #[serde(skip_serializing)]
+    path: PathBuf,
 }
 
 struct CompletedTasksIter<'a> {
@@ -37,8 +39,11 @@ struct PendingTasksIter<'a> {
 }
 
 impl TodoList {
-    fn new() -> Self {
-        let todolist = TodoList { tasks: vec![] };
+    fn new(path: &PathBuf) -> Self {
+        let todolist = TodoList { 
+            tasks: vec![],
+            path: path.to_path_buf()
+        };
         todolist.save();
         todolist
     }
@@ -103,17 +108,19 @@ impl TodoList {
     }
 
     fn save(&self) {
-        if let Err(_) = fs::exists("json.json") {
-            fs::write("json.json", "").expect("Erreur création fichier json.json");
+        if let Err(_) = fs::exists(&self.path) {
+            fs::write(&self.path, "").unwrap_or_else(|_| {
+                panic!("Erreur création fichier {:?}", &self.path);
+            });
         }
         let json = serde_json::to_string_pretty(&self).expect("Erreur sérialisation");
-        fs::write("json.json", json).expect("Erreur écriture fichier");
+        fs::write(&self.path, json).expect("Erreur écriture fichier");
     }
 
-    fn load() -> Self {
-        match fs::read_to_string("json.json") {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_else(|_| TodoList::new()),
-            Err(_) => TodoList::new(),
+    fn load(path: PathBuf) -> Self {
+        match fs::read_to_string(&path) {
+            Ok(content) => serde_json::from_str(&content).unwrap_or_else(|_| TodoList::new(&path)),
+            Err(_) => TodoList::new(&path),
         }
     }
 
@@ -170,6 +177,9 @@ impl<'a> Iterator for CompletedTasksIter<'a> {
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    /// Chemin vers le fichier de sauvegarde
+    #[arg(short, long, default_value = "todo.json")]
+    path: PathBuf,
 }
 
 #[derive(Subcommand)]
@@ -205,7 +215,7 @@ enum Commands {
 
 fn main() {    
     let cli = Cli::parse();
-    let mut todolist = TodoList::load();
+    let mut todolist = TodoList::load(cli.path);
     match cli.command {
         Commands::Add { title } => {
             todolist.add_task(title);

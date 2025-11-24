@@ -1,0 +1,4 @@
+- [x] dynamic path
+- [ ] anyhow ou thiserror
+- [ ] tests
+- [ ] modules
