@@ -1,9 +1,27 @@
 use std::{fs, path::PathBuf, vec};
 use clap::{Parser, Subcommand};
 use chrono::{DateTime, Local};
-
-
 use serde::{Deserialize, Serialize};
+
+trait Exporter {
+    fn export(&self, todolist: &TodoList) -> Result<(), ExportError>;
+}
+
+enum ExportError {
+    SerializationError(String),
+    IoError(std::io::Error),
+}
+
+struct JsonExporter;
+
+impl Exporter for JsonExporter {
+    fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
+        let json = serde_json::to_string_pretty(todolist).map_err(|e| ExportError::SerializationError(e.to_string()))?;
+        fs::write(&todolist.path, json).map_err(|e| ExportError::IoError(e))?;
+        Ok(())
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Task {
@@ -27,8 +45,10 @@ impl Task {
 #[derive(Serialize, Deserialize, Debug)]
 struct TodoList {
     tasks: Vec<Task>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     path: PathBuf,
+    #[serde(skip)]
+    format: String,
 }
 
 struct CompletedTasksIter<'a> {
@@ -39,10 +59,11 @@ struct PendingTasksIter<'a> {
 }
 
 impl TodoList {
-    fn new(path: &PathBuf) -> Self {
+    fn new(path: &PathBuf, format: String) -> Self {
         let todolist = TodoList { 
             tasks: vec![],
-            path: path.to_path_buf()
+            path: path.to_path_buf(),
+            format
         };
         todolist.save();
         todolist
@@ -113,14 +134,29 @@ impl TodoList {
                 panic!("Error creating file {:?}", &self.path);
             });
         }
-        let json = serde_json::to_string_pretty(&self).expect("Serialization error");
-        fs::write(&self.path, json).expect("File write error");
+        let exporter = match self.format {
+            _ => JsonExporter
+        };
+        match exporter.export(&self) {
+            Ok(_) => (),
+            Err(ExportError::SerializationError(msg)) => {
+                eprintln!("Serialization failed {}", msg);
+            },
+            Err(ExportError::IoError(e)) => {
+                eprintln!("IO error {}", e);
+            }
+        }
     }
 
-    fn load(path: PathBuf) -> Self {
+    fn load(path: PathBuf, format: String) -> Self {
         match fs::read_to_string(&path) {
-            Ok(content) => serde_json::from_str(&content).unwrap_or_else(|_| TodoList::new(&path)),
-            Err(_) => TodoList::new(&path),
+            Ok(content) => {
+                let mut todolist: TodoList = serde_json::from_str(&content).unwrap_or_else(|_| TodoList::new(&path, format.clone()));
+                todolist.path = path;
+                todolist.format = format;
+                todolist
+            },
+            Err(_) => TodoList::new(&path, format)
         }
     }
 
@@ -180,6 +216,9 @@ struct Cli {
     /// Path to the save file
     #[arg(short, long, default_value = "todo.json")]
     path: PathBuf,
+    /// Format to save the file into
+    #[arg(short, long, default_value = "json")]
+    format: String,
 }
 
 #[derive(Subcommand)]
@@ -215,7 +254,7 @@ enum Commands {
 
 fn main() {    
     let cli = Cli::parse();
-    let mut todolist = TodoList::load(cli.path);
+    let mut todolist = TodoList::load(cli.path, cli.format);
     match cli.command {
         Commands::Add { title } => {
             todolist.add_task(title);

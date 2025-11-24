@@ -10,6 +10,7 @@ A simple command-line task manager written in Rust.
 - Remove tasks
 - Reset all tasks
 - Persistent storage in JSON format using filesystem
+- Differents storage formats (JSON only for now)
 
 ## Installation
 
@@ -59,6 +60,11 @@ todo reset
 todo --path /path/to/file.json list
 ```
 
+### Custom format storage
+```bash
+todo --format json list
+```
+
 Default storage path is `todo.json` in the current directory.
 
 ## License
@@ -76,7 +82,11 @@ MIT
 - [ ] Add categories/tags
 - [ ] Allow editing task title
 - [ ] Undo system (keep history of modifications)
-- [ ] Export to different formats (Markdown, CSV)
+- [ ] Export to different formats using custom trait:
+    - [x] JSON, 
+    - [] CSV, 
+    - [] YAML, 
+    - [] Markdown
 - [ ] Stats: number of tasks completed this week, completion rate
 - [ ] Sub-tasks (recursive structure)
 - [ ] Proper error handling: replace expect() with proper error handling
