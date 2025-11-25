@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -31,7 +31,7 @@ struct CsvExporter;
 
 impl Exporter for CsvExporter {
     fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
-        let mut csv = csv::Writer::from_path(todolist.path.with_extension(&todolist.format))
+        let mut csv = csv::Writer::from_path(todolist.path.with_extension("csv"))
             .map_err(|e| ExportError::SerializationError(e.to_string()))?;
         for task in todolist.tasks.iter() {
             csv.serialize(task)
@@ -48,8 +48,7 @@ impl Exporter for YamlExporter {
     fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
         let yaml = serde_yml::to_string(todolist)
             .map_err(|e| ExportError::SerializationError(e.to_string()))?;
-        fs::write(todolist.path.with_extension(&todolist.format), yaml)
-            .map_err(ExportError::IoError)?;
+        fs::write(todolist.path.with_extension("yaml"), yaml).map_err(ExportError::IoError)?;
         Ok(())
     }
 }
@@ -72,8 +71,7 @@ impl Exporter for MarkdownExporter {
             }
             markdown.push('\n');
         }
-        fs::write(todolist.path.with_extension(&todolist.format), markdown)
-            .map_err(ExportError::IoError)?;
+        fs::write(todolist.path.with_extension("md"), markdown).map_err(ExportError::IoError)?;
         Ok(())
     }
 }
@@ -108,8 +106,6 @@ struct TodoList {
     tasks: Vec<Task>,
     #[serde(skip)]
     path: PathBuf,
-    #[serde(skip)]
-    format: String,
 }
 
 struct CompletedTasksIter<'a> {
@@ -120,13 +116,12 @@ struct PendingTasksIter<'a> {
 }
 
 impl TodoList {
-    fn new(path: &Path, format: String) -> Self {
+    fn new(path: &Path) -> Self {
         let todolist = TodoList {
             tasks: vec![],
             path: path.to_path_buf(),
-            format,
         };
-        todolist.save();
+        todolist.save_tasks();
         todolist
     }
 
@@ -143,14 +138,14 @@ impl TodoList {
             completed_at: None,
         };
         self.tasks.push(task);
-        self.save();
+        self.save_tasks();
     }
 
     fn remove_task(&mut self, id: i32) {
         if let Some(index) = self.tasks.iter().position(|task| task.id == id) {
             self.tasks.remove(index);
         };
-        self.save();
+        self.save_tasks();
     }
 
     fn list_tasks(&mut self) {
@@ -178,7 +173,7 @@ impl TodoList {
             task.done = true;
             task.completed_at = Some(Local::now())
         }
-        self.save();
+        self.save_tasks();
     }
 
     fn reset_tasks(&mut self) {
@@ -186,21 +181,21 @@ impl TodoList {
             task.done = false;
             task.completed_at = None;
         }
-        self.save();
+        self.save_tasks();
     }
 
-    fn save(&self) {
+    fn export_tasks(&self, format: FormatEnum) {
         if fs::exists(&self.path).is_err() {
             fs::write(&self.path, "").unwrap_or_else(|_| {
                 panic!("Error creating file {:?}", &self.path);
             });
         }
 
-        let exporter: Box<dyn Exporter> = match self.format.as_str() {
-            "csv" => Box::new(CsvExporter),
-            "yaml" | "yml" => Box::new(YamlExporter),
-            "markdown" | "md" => Box::new(MarkdownExporter),
-            _ => Box::new(JsonExporter),
+        let exporter: Box<dyn Exporter> = match format {
+            FormatEnum::Json => Box::new(JsonExporter),
+            FormatEnum::Csv => Box::new(CsvExporter),
+            FormatEnum::Yaml => Box::new(YamlExporter),
+            FormatEnum::Markdown => Box::new(MarkdownExporter),
         };
 
         match exporter.export(self) {
@@ -214,16 +209,19 @@ impl TodoList {
         }
     }
 
-    fn load(path: PathBuf, format: String) -> Self {
+    fn save_tasks(&self) {
+        self.export_tasks(FormatEnum::Json);
+    }
+
+    fn load_tasks(path: PathBuf) -> Self {
         match fs::read_to_string(&path) {
             Ok(content) => {
-                let mut todolist: TodoList = serde_json::from_str(&content)
-                    .unwrap_or_else(|_| TodoList::new(&path, format.clone()));
+                let mut todolist: TodoList =
+                    serde_json::from_str(&content).unwrap_or_else(|_| TodoList::new(&path));
                 todolist.path = path;
-                todolist.format = format;
                 todolist
             }
-            Err(_) => TodoList::new(&path, format),
+            Err(_) => TodoList::new(&path),
         }
     }
 
@@ -273,9 +271,14 @@ struct Cli {
     /// Path to the save file
     #[arg(short, long, default_value = "todo.json")]
     path: PathBuf,
-    /// Format to save the file into
-    #[arg(short, long, default_value = "json")]
-    format: String,
+}
+
+#[derive(Clone, ValueEnum)]
+enum FormatEnum {
+    Json,
+    Csv,
+    Yaml,
+    Markdown,
 }
 
 #[derive(Subcommand)]
@@ -307,11 +310,17 @@ enum Commands {
     },
     /// Reset all tasks
     Reset,
+    /// Export all tasks
+    Export {
+        /// Choose which format to export to
+        #[arg(long)]
+        format: FormatEnum,
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
-    let mut todolist = TodoList::load(cli.path, cli.format);
+    let mut todolist = TodoList::load_tasks(cli.path);
     match cli.command {
         Commands::Add { title } => {
             todolist.add_task(title);
@@ -337,6 +346,9 @@ fn main() {
         Commands::Reset => {
             todolist.reset_tasks();
             todolist.list_tasks();
+        }
+        Commands::Export { format } => {
+            todolist.export_tasks(format);
         }
     }
 }
