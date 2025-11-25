@@ -22,6 +22,18 @@ impl Exporter for JsonExporter {
     }
 }
 
+struct CsvExporter;
+
+impl Exporter for CsvExporter {
+    fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
+        let mut csv = csv::Writer::from_path(&todolist.path.with_extension(&todolist.format)).map_err(|e| ExportError::SerializationError(e.to_string()))?;
+        for task in todolist.tasks.iter() {
+            csv.serialize(task).map_err(|e| ExportError::SerializationError(e.to_string()))?;
+        }
+        csv.flush().map_err(|e| ExportError::IoError(e))?;
+        Ok(())
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Task {
@@ -134,9 +146,12 @@ impl TodoList {
                 panic!("Error creating file {:?}", &self.path);
             });
         }
-        let exporter = match self.format {
-            _ => JsonExporter
+
+        let exporter: Box<dyn Exporter> = match self.format.as_str() {
+            "csv" => Box::new(CsvExporter),
+            _ => Box::new(JsonExporter),
         };
+
         match exporter.export(&self) {
             Ok(_) => (),
             Err(ExportError::SerializationError(msg)) => {
