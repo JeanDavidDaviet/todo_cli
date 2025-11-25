@@ -35,6 +35,16 @@ impl Exporter for CsvExporter {
     }
 }
 
+struct YamlExporter;
+
+impl Exporter for YamlExporter {
+    fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
+        let yaml = serde_yml::to_string(todolist).map_err(|e| ExportError::SerializationError(e.to_string()))?;
+        fs::write(&todolist.path.with_extension(&todolist.format), yaml).map_err(|e| ExportError::IoError(e))?;
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Task {
     id: i32,
@@ -149,6 +159,7 @@ impl TodoList {
 
         let exporter: Box<dyn Exporter> = match self.format.as_str() {
             "csv" => Box::new(CsvExporter),
+            "yaml"|"yml" => Box::new(YamlExporter),
             _ => Box::new(JsonExporter),
         };
 

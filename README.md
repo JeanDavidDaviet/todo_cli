@@ -84,9 +84,9 @@ MIT
 - [ ] Undo system (keep history of modifications)
 - [ ] Export to different formats using custom trait:
     - [x] JSON, 
-    - [] CSV, 
-    - [] YAML, 
-    - [] Markdown
+    - [x] CSV, 
+    - [x] YAML, 
+    - [ ] Markdown
 - [ ] Stats: number of tasks completed this week, completion rate
 - [ ] Sub-tasks (recursive structure)
 - [ ] Proper error handling: replace expect() with proper error handling
