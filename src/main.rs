@@ -45,6 +45,29 @@ impl Exporter for YamlExporter {
     }
 }
 
+struct MarkdownExporter;
+
+impl Exporter for MarkdownExporter {
+    fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
+        let mut markdown = String::new();
+        for task in &todolist.tasks {
+            markdown.push_str("- [");
+            if task.done == false {
+                markdown.push_str("x");
+            }
+            markdown.push_str("] ");
+            markdown.push_str(&task.title);
+            markdown.push_str(&format!(" - Created at {}", task.created_at));
+            if let Some(completed) = task.completed_at {
+                markdown.push_str(&format!(" - Completed at {}", completed));
+            }
+            markdown.push('\n');
+        }
+        fs::write(&todolist.path.with_extension(&todolist.format), markdown).map_err(|e| ExportError::IoError(e))?;
+        Ok(())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Task {
     id: i32,
@@ -160,6 +183,7 @@ impl TodoList {
         let exporter: Box<dyn Exporter> = match self.format.as_str() {
             "csv" => Box::new(CsvExporter),
             "yaml"|"yml" => Box::new(YamlExporter),
+            "markdown"|"md" => Box::new(MarkdownExporter),
             _ => Box::new(JsonExporter),
         };
 
