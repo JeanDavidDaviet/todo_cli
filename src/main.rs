@@ -1,7 +1,11 @@
 use chrono::{DateTime, Local};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf, vec};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    vec,
+};
 
 trait Exporter {
     fn export(&self, todolist: &TodoList) -> Result<(), ExportError>;
@@ -18,7 +22,7 @@ impl Exporter for JsonExporter {
     fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
         let json = serde_json::to_string_pretty(todolist)
             .map_err(|e| ExportError::SerializationError(e.to_string()))?;
-        fs::write(&todolist.path, json).map_err(|e| ExportError::IoError(e))?;
+        fs::write(&todolist.path, json).map_err(ExportError::IoError)?;
         Ok(())
     }
 }
@@ -27,13 +31,13 @@ struct CsvExporter;
 
 impl Exporter for CsvExporter {
     fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
-        let mut csv = csv::Writer::from_path(&todolist.path.with_extension(&todolist.format))
+        let mut csv = csv::Writer::from_path(todolist.path.with_extension(&todolist.format))
             .map_err(|e| ExportError::SerializationError(e.to_string()))?;
         for task in todolist.tasks.iter() {
             csv.serialize(task)
                 .map_err(|e| ExportError::SerializationError(e.to_string()))?;
         }
-        csv.flush().map_err(|e| ExportError::IoError(e))?;
+        csv.flush().map_err(ExportError::IoError)?;
         Ok(())
     }
 }
@@ -44,8 +48,8 @@ impl Exporter for YamlExporter {
     fn export(&self, todolist: &TodoList) -> Result<(), ExportError> {
         let yaml = serde_yml::to_string(todolist)
             .map_err(|e| ExportError::SerializationError(e.to_string()))?;
-        fs::write(&todolist.path.with_extension(&todolist.format), yaml)
-            .map_err(|e| ExportError::IoError(e))?;
+        fs::write(todolist.path.with_extension(&todolist.format), yaml)
+            .map_err(ExportError::IoError)?;
         Ok(())
     }
 }
@@ -57,8 +61,8 @@ impl Exporter for MarkdownExporter {
         let mut markdown = String::new();
         for task in &todolist.tasks {
             markdown.push_str("- [");
-            if task.done == false {
-                markdown.push_str("x");
+            if !task.done {
+                markdown.push('x');
             }
             markdown.push_str("] ");
             markdown.push_str(&task.title);
@@ -68,8 +72,8 @@ impl Exporter for MarkdownExporter {
             }
             markdown.push('\n');
         }
-        fs::write(&todolist.path.with_extension(&todolist.format), markdown)
-            .map_err(|e| ExportError::IoError(e))?;
+        fs::write(todolist.path.with_extension(&todolist.format), markdown)
+            .map_err(ExportError::IoError)?;
         Ok(())
     }
 }
@@ -116,7 +120,7 @@ struct PendingTasksIter<'a> {
 }
 
 impl TodoList {
-    fn new(path: &PathBuf, format: String) -> Self {
+    fn new(path: &Path, format: String) -> Self {
         let todolist = TodoList {
             tasks: vec![],
             path: path.to_path_buf(),
@@ -133,7 +137,7 @@ impl TodoList {
         }
         let task = Task {
             id: last_task_id,
-            title: title,
+            title,
             done: false,
             created_at: Local::now(),
             completed_at: None,
@@ -168,11 +172,11 @@ impl TodoList {
     }
 
     fn complete_task(&mut self, i: i32) {
-        if let Ok(index) = usize::try_from(i - 1) {
-            if let Some(task) = self.tasks.get_mut(index) {
-                task.done = true;
-                task.completed_at = Some(Local::now())
-            }
+        if let Ok(index) = usize::try_from(i - 1)
+            && let Some(task) = self.tasks.get_mut(index)
+        {
+            task.done = true;
+            task.completed_at = Some(Local::now())
         }
         self.save();
     }
@@ -186,7 +190,7 @@ impl TodoList {
     }
 
     fn save(&self) {
-        if let Err(_) = fs::exists(&self.path) {
+        if fs::exists(&self.path).is_err() {
             fs::write(&self.path, "").unwrap_or_else(|_| {
                 panic!("Error creating file {:?}", &self.path);
             });
@@ -199,7 +203,7 @@ impl TodoList {
             _ => Box::new(JsonExporter),
         };
 
-        match exporter.export(&self) {
+        match exporter.export(self) {
             Ok(_) => (),
             Err(ExportError::SerializationError(msg)) => {
                 eprintln!("Serialization failed {}", msg);
@@ -248,12 +252,7 @@ impl<'a> Iterator for PendingTasksIter<'a> {
     type Item = &'a Task;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(task) = self.inner.next() {
-            if !task.done {
-                return Some(task);
-            }
-        }
-        None
+        self.inner.by_ref().find(|&task| !task.done).map(|v| v as _)
     }
 }
 
@@ -261,12 +260,7 @@ impl<'a> Iterator for CompletedTasksIter<'a> {
     type Item = &'a Task;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(task) = self.inner.next() {
-            if task.done {
-                return Some(task);
-            }
-        }
-        None
+        self.inner.by_ref().find(|&task| task.done).map(|v| v as _)
     }
 }
 
