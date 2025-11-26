@@ -4,13 +4,14 @@ A simple command-line task manager written in Rust.
 
 ## Features
 
-- Add tasks
+- Add tasks with optional priorities (high, medium, low)
 - List tasks (all, completed, or pending)
 - Complete tasks
 - Remove tasks
 - Reset all tasks
+- Export tasks to different formats (JSON, CSV, YAML, Markdown)
 - Persistent storage in JSON format using filesystem
-- Differents storage formats (JSON only for now)
+- Different storage formats (JSON only for now)
 
 ## Installation
 
@@ -24,6 +25,15 @@ cargo build --release
 ```bash
 todo add "Task title"
 ```
+
+### Add a task with priority
+```bash
+todo add "Task title" --priority high
+# Or use short form
+todo add "Task title" -p high
+```
+
+Available priorities: `high`, `medium`, `low`
 
 ### List all tasks
 ```bash
@@ -55,6 +65,24 @@ todo remove <index>
 todo reset
 ```
 
+### Export tasks
+```bash
+# Export to JSON (default)
+todo export output.json
+
+# Export to CSV
+todo export output.csv --format csv
+
+# Export to YAML
+todo export output.yaml --format yaml
+
+# Export to Markdown
+todo export output.md --format markdown
+
+# Use short form for format
+todo export output.csv -f csv
+```
+
 ### Custom storage path
 ```bash
 todo --path /path/to/file.json list
@@ -63,6 +91,8 @@ todo --path /path/to/file.json list
 ### Custom format storage
 ```bash
 todo --format json list
+# Or use short form
+todo -f json list
 ```
 
 Default storage path is `todo.json` in the current directory.
