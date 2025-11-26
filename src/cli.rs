@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-use crate::exporter::FormatEnum;
+use crate::{exporter::FormatEnum, task::PriorityEnum};
 
 #[derive(Parser)]
 #[command(name = "todo")]
@@ -20,6 +20,9 @@ pub enum Commands {
     Add {
         /// The task title
         title: String,
+        /// The task priority
+        #[arg(long)]
+        priority: Option<PriorityEnum>,
     },
     /// List all tasks
     List {

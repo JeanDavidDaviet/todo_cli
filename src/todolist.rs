@@ -6,8 +6,8 @@ use std::{
     vec,
 };
 
-use crate::exporter::*;
 use crate::task::Task;
+use crate::{exporter::*, task::PriorityEnum};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TodoList {
@@ -26,7 +26,7 @@ impl TodoList {
         todolist
     }
 
-    pub fn add_task(&mut self, title: String) {
+    pub fn add_task(&mut self, title: String, priority: Option<PriorityEnum>) {
         let mut last_task_id = 0;
         if let Some(last_task) = self.tasks.last() {
             last_task_id = last_task.id + 1;
@@ -37,6 +37,7 @@ impl TodoList {
             done: false,
             created_at: Local::now(),
             completed_at: None,
+            priority,
         };
         self.tasks.push(task);
         self.save_tasks();

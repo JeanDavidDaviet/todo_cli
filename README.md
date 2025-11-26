@@ -76,17 +76,17 @@ MIT
 - [x] dynamic path
 - [ ] anyhow ou thiserror
 - [ ] tests
-- [ ] modules
+- [x] modules
 - [ ] TUI
-- [ ] Add priorities (high/medium/low)
+- [x] Add priorities (high/medium/low)
 - [ ] Add categories/tags
 - [ ] Allow editing task title
 - [ ] Undo system (keep history of modifications)
-- [ ] Export to different formats using custom trait:
+- [x] Export to different formats using custom trait:
     - [x] JSON, 
     - [x] CSV, 
     - [x] YAML, 
-    - [ ] Markdown
+    - [x] Markdown
 - [ ] Stats: number of tasks completed this week, completion rate
 - [ ] Sub-tasks (recursive structure)
 - [ ] Proper error handling: replace expect() with proper error handling

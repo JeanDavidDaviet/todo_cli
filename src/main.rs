@@ -14,8 +14,8 @@ fn main() {
     let cli = Cli::parse();
     let mut todolist = TodoList::load_tasks(cli.path);
     match cli.command {
-        Commands::Add { title } => {
-            todolist.add_task(title);
+        Commands::Add { title, priority } => {
+            todolist.add_task(title, priority);
             todolist.list_tasks();
         }
         Commands::Remove { id } => {
