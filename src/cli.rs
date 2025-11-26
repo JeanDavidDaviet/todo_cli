@@ -21,7 +21,7 @@ pub enum Commands {
         /// The task title
         title: String,
         /// The task priority
-        #[arg(long)]
+        #[arg(short, long)]
         priority: Option<PriorityEnum>,
     },
     /// List all tasks
@@ -49,7 +49,7 @@ pub enum Commands {
     /// Export all tasks
     Export {
         /// Choose which format to export to
-        #[arg(long)]
+        #[arg(short, long)]
         format: FormatEnum,
     },
 }
