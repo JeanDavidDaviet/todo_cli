@@ -2,7 +2,7 @@ use chrono::{DateTime, Local};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, ValueEnum, Debug)]
+#[derive(Serialize, Deserialize, Clone, ValueEnum, PartialEq, Debug)]
 pub enum PriorityEnum {
     High,
     Medium,

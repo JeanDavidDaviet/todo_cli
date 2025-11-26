@@ -75,7 +75,7 @@ MIT
 
 - [x] dynamic path
 - [ ] anyhow ou thiserror
-- [ ] tests
+- [x] tests
 - [x] modules
 - [ ] TUI
 - [x] Add priorities (high/medium/low)
